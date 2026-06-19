@@ -542,6 +542,10 @@ button {
   gap: 11px;
 }
 
+.auth-form[hidden] {
+  display: none;
+}
+
 .auth-form input {
   width: 100%;
   border: 1px solid var(--line-soft);
