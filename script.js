@@ -66,6 +66,7 @@ const state = {
   latestAnalysis: JSON.parse(localStorage.getItem("meetmindLatestAnalysis") || "null") || starterAnalysis,
   meetings: JSON.parse(localStorage.getItem("meetmindMeetings") || "null") || [starterAnalysis],
   tasks: JSON.parse(localStorage.getItem("meetmindTasks") || "null") || seedTasksFromAnalysis(starterAnalysis),
+  authMode: localStorage.getItem("meetmindAuthMode") || "login",
   loading: false
 };
 
@@ -149,10 +150,9 @@ function attachViewEvents() {
 
   document.querySelectorAll("[data-auth-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      document.querySelectorAll("[data-auth-mode]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      document.querySelector("#loginForm").hidden = button.dataset.authMode !== "login";
-      document.querySelector("#registerForm").hidden = button.dataset.authMode !== "register";
+      state.authMode = button.dataset.authMode;
+      localStorage.setItem("meetmindAuthMode", state.authMode);
+      render();
     });
   });
 
@@ -214,6 +214,8 @@ function attachViewEvents() {
 }
 
 function renderAuth() {
+  const isLogin = state.authMode === "login";
+
   return `
     <section class="auth-wrap">
       <div class="auth-card">
@@ -224,29 +226,31 @@ function renderAuth() {
         </div>
 
         <div class="auth-tabs">
-          <button class="active" data-auth-mode="login" type="button">Login</button>
-          <button data-auth-mode="register" type="button">Register</button>
+          <button class="${isLogin ? "active" : ""}" data-auth-mode="login" type="button">Login</button>
+          <button class="${isLogin ? "" : "active"}" data-auth-mode="register" type="button">Register</button>
         </div>
 
-        <form class="auth-form" id="loginForm">
-          <label for="loginEmail">Email</label>
-          <input id="loginEmail" type="email" value="demo@meetmind.ai" required />
-          <label for="loginPassword">Password</label>
-          <input id="loginPassword" type="password" value="password123" required />
-          <button class="button primary" type="submit">Login</button>
-        </form>
-
-        <form class="auth-form" id="registerForm" hidden>
-          <label for="registerName">Name</label>
-          <input id="registerName" type="text" value="Mohnish Anand" required />
-          <label for="registerEmail">Email</label>
-          <input id="registerEmail" type="email" placeholder="you@example.com" required />
-          <label for="registerPassword">Password</label>
-          <input id="registerPassword" type="password" minlength="6" value="password123" required />
-          <label for="organizationName">Workspace</label>
-          <input id="organizationName" type="text" value="MeetMind Workspace" />
-          <button class="button primary" type="submit">Create Account</button>
-        </form>
+        ${isLogin ? `
+          <form class="auth-form" id="loginForm">
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" value="demo@meetmind.ai" required />
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" value="password123" required />
+            <button class="button primary" type="submit">Login</button>
+          </form>
+        ` : `
+          <form class="auth-form" id="registerForm">
+            <label for="registerName">Name</label>
+            <input id="registerName" type="text" value="Mohnish Anand" required />
+            <label for="registerEmail">Email</label>
+            <input id="registerEmail" type="email" placeholder="you@example.com" required />
+            <label for="registerPassword">Password</label>
+            <input id="registerPassword" type="password" minlength="6" value="password123" required />
+            <label for="organizationName">Workspace</label>
+            <input id="organizationName" type="text" value="MeetMind Workspace" />
+            <button class="button primary" type="submit">Create Account</button>
+          </form>
+        `}
       </div>
     </section>
   `;
