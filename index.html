@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetMind AI | Devpost Demo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">M</div>
+        <div>
+          <h1>MeetMind AI</h1>
+          <p>Productivity Suite</p>
+        </div>
+      </div>
+
+      <button class="primary-action" id="newMeetingBtn" type="button">
+        <span>+</span>
+        New Meeting
+      </button>
+
+      <nav class="nav" aria-label="Main navigation">
+        <button class="nav-item active" data-view="dashboard" type="button">
+          <span class="nav-symbol">D</span>
+          Dashboard
+        </button>
+        <button class="nav-item" data-view="analyzer" type="button">
+          <span class="nav-symbol">A</span>
+          Analyzer
+        </button>
+        <button class="nav-item" data-view="tasks" type="button">
+          <span class="nav-symbol">T</span>
+          Tasks
+        </button>
+        <button class="nav-item" data-view="meeting" type="button">
+          <span class="nav-symbol">M</span>
+          Meeting Detail
+        </button>
+      </nav>
+
+      <div class="plan-card">
+        <p class="kicker">Current Plan</p>
+        <strong>Devpost Demo</strong>
+        <div class="meter"><span></span></div>
+        <p>Offline analyzer ready for live judging.</p>
+      </div>
+    </aside>
+
+    <div class="content-shell">
+      <header class="topbar">
+        <div class="search">
+          <span>Search</span>
+          <input type="search" placeholder="Search meetings, tasks, or decisions..." />
+        </div>
+        <div class="profile">
+          <button class="icon-button" type="button" aria-label="Notifications">N</button>
+          <button class="icon-button" type="button" aria-label="History">H</button>
+          <div class="profile-copy">
+            <strong>Mohnish</strong>
+            <span>Builder</span>
+          </div>
+          <div class="avatar">MA</div>
+        </div>
+      </header>
+
+      <main id="app" class="app"></main>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
