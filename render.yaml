@@ -10,11 +10,4 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: meetmind-ai-db
-          property: connectionString
-
-databases:
-  - name: meetmind-ai-db
-    databaseName: meetmind_ai
-    user: meetmind_ai_user
+        sync: false
