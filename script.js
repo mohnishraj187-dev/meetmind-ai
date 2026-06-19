@@ -67,6 +67,7 @@ const state = {
   meetings: JSON.parse(localStorage.getItem("meetmindMeetings") || "null") || [starterAnalysis],
   tasks: JSON.parse(localStorage.getItem("meetmindTasks") || "null") || seedTasksFromAnalysis(starterAnalysis),
   authMode: localStorage.getItem("meetmindAuthMode") || "login",
+  googleClientId: "",
   loading: false
 };
 
@@ -80,6 +81,7 @@ navButtons.forEach((button) => {
 });
 
 async function init() {
+  await loadPublicConfig();
   renderProfile();
   if (state.token) {
     await loadRemoteData(false);
@@ -158,6 +160,7 @@ function attachViewEvents() {
 
   document.querySelector("#loginForm")?.addEventListener("submit", handleLogin);
   document.querySelector("#registerForm")?.addEventListener("submit", handleRegister);
+  renderGoogleButton();
 
   const loadSampleBtn = document.querySelector("#loadSampleBtn");
   if (loadSampleBtn) {
@@ -229,6 +232,13 @@ function renderAuth() {
           <button class="${isLogin ? "active" : ""}" data-auth-mode="login" type="button">Login</button>
           <button class="${isLogin ? "" : "active"}" data-auth-mode="register" type="button">Register</button>
         </div>
+
+        <div class="google-auth">
+          <div id="googleAuthButton"></div>
+          <p>${state.googleClientId ? "Use your Google account for login or registration." : "Add GOOGLE_CLIENT_ID in Render to enable Google login."}</p>
+        </div>
+
+        <div class="auth-divider"><span>or use email</span></div>
 
         ${isLogin ? `
           <form class="auth-form" id="loginForm">
@@ -500,6 +510,42 @@ async function authenticate(path, payload) {
   }
 }
 
+async function handleGoogleCredential(response) {
+  try {
+    await authenticate("/api/auth/google", { credential: response.credential });
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function loadPublicConfig() {
+  try {
+    const config = await api("/api/config", { skipAuth: true });
+    state.googleClientId = config.googleClientId || "";
+  } catch {
+    state.googleClientId = "";
+  }
+}
+
+function renderGoogleButton() {
+  const target = document.querySelector("#googleAuthButton");
+  if (!target || !state.googleClientId || !window.google?.accounts?.id) return;
+
+  window.google.accounts.id.initialize({
+    client_id: state.googleClientId,
+    callback: handleGoogleCredential
+  });
+
+  window.google.accounts.id.renderButton(target, {
+    theme: "outline",
+    size: "large",
+    type: "standard",
+    shape: "rectangular",
+    text: state.authMode === "login" ? "signin_with" : "signup_with",
+    width: target.clientWidth || 360
+  });
+}
+
 function logout() {
   state.token = "";
   state.user = null;
@@ -593,7 +639,7 @@ async function api(path, options = {}) {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
+      ...(state.token && !options.skipAuth ? { Authorization: `Bearer ${state.token}` } : {}),
       ...(options.headers || {})
     }
   });

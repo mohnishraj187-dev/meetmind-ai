@@ -537,6 +537,39 @@ button {
   box-shadow: 0 8px 18px rgba(25, 27, 35, 0.06);
 }
 
+.google-auth {
+  display: grid;
+  gap: 8px;
+}
+
+.google-auth > div {
+  min-height: 42px;
+}
+
+.google-auth p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--line-soft);
+}
+
 .auth-form {
   display: grid;
   gap: 11px;

@@ -59,12 +59,23 @@ http://localhost:3000
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/google`
 - `POST /api/meetings/analyze`
 - `POST /api/meetings`
 - `GET /api/meetings`
 - `GET /api/meetings/:id`
 - `GET /api/tasks`
 - `PATCH /api/tasks/:id`
+
+## Google Login
+
+Create a Google OAuth Web Client ID and add it to both local `.env` and Render:
+
+```text
+GOOGLE_CLIENT_ID=your_google_oauth_client_id.apps.googleusercontent.com
+```
+
+For Render, add your deployed URL to the OAuth client's authorized JavaScript origins.
 
 ## Demo Script
 

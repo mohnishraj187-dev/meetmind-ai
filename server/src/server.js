@@ -22,6 +22,12 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "meetmind-ai" });
 });
 
+app.get("/api/config", (_req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || ""
+  });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/meetings", meetingRouter);
 app.use("/api/tasks", taskRouter);
