@@ -1,9 +1,5 @@
 export function analyzeMeeting(title, transcript) {
-  const sentences = transcript
-    .replace(/\n/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
+  const sentences = splitTranscriptSentences(transcript);
 
   const decisions = unique(
     sentences.filter((sentence) => /decided|approved|agreed|confirmed|go with|keep the|final decision/i.test(sentence))
@@ -36,6 +32,25 @@ export function analyzeMeeting(title, transcript) {
     followUp: buildFollowUp(title, actionItems, decisions, risks),
     participantCount: countParticipants(transcript)
   };
+}
+
+function splitTranscriptSentences(transcript) {
+  return transcript
+    .split(/\n+/)
+    .flatMap((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return [];
+
+      const speakerMatch = trimmed.match(/^([A-Z][a-z]+):\s*/);
+      const speaker = speakerMatch?.[1];
+      const body = speaker ? trimmed.slice(speakerMatch[0].length) : trimmed;
+
+      return body
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean)
+        .map((sentence) => speaker ? `${speaker}: ${sentence}` : sentence);
+    });
 }
 
 function parseActionItem(sentence) {

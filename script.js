@@ -58,9 +58,11 @@ const app = document.querySelector("#app");
 const navButtons = document.querySelectorAll("[data-view]");
 const newMeetingBtn = document.querySelector("#newMeetingBtn");
 const profileArea = document.querySelector("#profileArea");
+const searchInput = document.querySelector("#searchInput");
+let installPromptEvent = null;
 
 const state = {
-  view: localStorage.getItem("meetmindView") || "dashboard",
+  view: new URLSearchParams(window.location.search).get("view") || localStorage.getItem("meetmindView") || "dashboard",
   token: localStorage.getItem("meetmindToken") || "",
   user: JSON.parse(localStorage.getItem("meetmindUser") || "null"),
   latestAnalysis: JSON.parse(localStorage.getItem("meetmindLatestAnalysis") || "null") || starterAnalysis,
@@ -68,11 +70,12 @@ const state = {
   tasks: JSON.parse(localStorage.getItem("meetmindTasks") || "null") || seedTasksFromAnalysis(starterAnalysis),
   authMode: localStorage.getItem("meetmindAuthMode") || "login",
   googleClientId: "",
+  searchQuery: "",
   loading: false
 };
 
 newMeetingBtn.addEventListener("click", () => {
-  setView(state.token ? "analyzer" : "auth");
+  setView("analyzer");
   requestAnimationFrame(() => document.querySelector("#transcript")?.focus());
 });
 
@@ -80,24 +83,42 @@ navButtons.forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
 });
 
+searchInput?.addEventListener("input", (event) => {
+  state.searchQuery = event.target.value.trim();
+  render();
+});
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPromptEvent = event;
+  renderProfile();
+});
+
+window.addEventListener("appinstalled", () => {
+  installPromptEvent = null;
+  toast("MeetMind AI installed");
+  renderProfile();
+});
+
 async function init() {
+  registerServiceWorker();
   await loadPublicConfig();
   renderProfile();
   if (state.token) {
     await loadRemoteData(false);
   }
-  setView(state.token ? state.view : "auth");
+  setView(state.view === "auth" && !state.token ? "dashboard" : state.view);
 }
 
 function setView(view) {
   state.view = view;
   localStorage.setItem("meetmindView", view);
-  navButtons.forEach((button) => button.classList.toggle("active", state.token && button.dataset.view === view));
+  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   render();
 }
 
 function render() {
-  if (!state.token) {
+  if (state.view === "auth") {
     app.innerHTML = renderAuth();
   } else {
     const views = {
@@ -118,9 +139,16 @@ function renderProfile() {
 
   if (!state.token || !state.user) {
     profileArea.innerHTML = `
+      <div class="profile-copy">
+        <strong>Demo Mode</strong>
+        <span>Local browser data</span>
+      </div>
+      ${installPromptEvent ? `<button class="button soft compact" id="installAppBtn" type="button">Install App</button>` : ""}
       <button class="button secondary compact" data-go="auth" type="button">Login</button>
       <div class="avatar">AI</div>
     `;
+    profileArea.querySelector("[data-go='auth']")?.addEventListener("click", () => setView("auth"));
+    profileArea.querySelector("#installAppBtn")?.addEventListener("click", handleInstallApp);
     return;
   }
 
@@ -139,9 +167,11 @@ function renderProfile() {
       <span>${escapeHtml(state.user.role || "member")}</span>
     </div>
     <div class="avatar">${escapeHtml(initials || "U")}</div>
+    ${installPromptEvent ? `<button class="mini-button" id="installAppBtn" type="button">Install App</button>` : ""}
     <button class="mini-button" id="logoutBtn" type="button">Logout</button>
   `;
 
+  document.querySelector("#installAppBtn")?.addEventListener("click", handleInstallApp);
   document.querySelector("#logoutBtn")?.addEventListener("click", logout);
 }
 
@@ -156,6 +186,11 @@ function attachViewEvents() {
       localStorage.setItem("meetmindAuthMode", state.authMode);
       render();
     });
+  });
+
+  document.querySelector("#demoModeBtn")?.addEventListener("click", () => {
+    setView("dashboard");
+    toast("Local demo mode ready");
   });
 
   document.querySelector("#loginForm")?.addEventListener("submit", handleLogin);
@@ -214,6 +249,7 @@ function attachViewEvents() {
   }
 
   document.querySelector("#refreshDataBtn")?.addEventListener("click", () => loadRemoteData(true));
+  document.querySelector("#exportReportBtn")?.addEventListener("click", exportMeetingReport);
 }
 
 function renderAuth() {
@@ -225,7 +261,7 @@ function renderAuth() {
         <div>
           <p class="kicker">MeetMind AI</p>
           <h2>Sign in to save meetings</h2>
-          <p class="muted">Create a workspace account so transcripts, decisions, risks, and action items are stored in Neon PostgreSQL through the Render backend.</p>
+          <p class="muted">Create a workspace account for backend persistence, or continue in local demo mode for live judging without database setup.</p>
         </div>
 
         <div class="auth-tabs">
@@ -261,6 +297,8 @@ function renderAuth() {
             <button class="button primary" type="submit">Create Account</button>
           </form>
         `}
+
+        <button class="button soft full-width" id="demoModeBtn" type="button">Continue Demo Without Login</button>
       </div>
     </section>
   `;
@@ -269,23 +307,25 @@ function renderAuth() {
 function renderDashboard() {
   const pending = state.tasks.filter((task) => task.status !== "done").length;
   const decisions = state.meetings.reduce((sum, meeting) => sum + Number(meeting.decisionCount || meeting.decisions?.length || 0), 0);
+  const visibleMeetings = getFilteredMeetings();
+  const visibleTasks = getFilteredTasks();
 
   return `
     <section class="view active">
       <div class="hero-card">
         <p class="kicker">Productivity AI Track</p>
         <h2>Welcome back, ${escapeHtml(state.user?.name || "Builder")}</h2>
-        <p>MeetMind is connected to your Render backend and Neon database. Analyze a meeting to persist summaries, decisions, risks, and tasks for your workspace.</p>
+        <p>${state.token ? "MeetMind is connected to your Render backend and Neon database. Analyze a meeting to persist summaries, decisions, risks, and tasks for your workspace." : "MeetMind is running in local demo mode. Analyze a meeting offline and keep summaries, decisions, risks, and tasks in this browser."}</p>
         <div class="hero-actions">
           <button class="button secondary" data-go="analyzer" type="button">Analyze Meeting</button>
           <button class="button ghost" data-go="tasks" type="button">Review Tasks</button>
-          <button class="button ghost" id="refreshDataBtn" type="button">Refresh Data</button>
+          ${state.token ? `<button class="button ghost" id="refreshDataBtn" type="button">Refresh Data</button>` : `<button class="button ghost" data-go="auth" type="button">Connect Backend</button>`}
         </div>
       </div>
 
       <div class="stats-grid">
-        ${statCard("Meetings Analyzed", state.meetings.length, "M", "Neon", "primary")}
-        ${statCard("Tasks Created", state.tasks.length, "T", "Live", "tertiary")}
+        ${statCard("Meetings Analyzed", state.meetings.length, "M", state.token ? "Neon" : "Local", "primary")}
+        ${statCard("Tasks Created", state.tasks.length, "T", state.token ? "Live" : "Demo", "tertiary")}
         ${statCard("Pending Tasks", pending, "P", pending ? "Alert" : "Clear", "danger")}
         ${statCard("Decisions Captured", decisions, "D", `+${decisions}`, "secondary")}
       </div>
@@ -293,19 +333,24 @@ function renderDashboard() {
       <div class="dashboard-grid">
         <section class="panel">
           <div class="panel-header">
-            <h3>Recent Meetings</h3>
+            <h3>${state.searchQuery ? "Matching Meetings" : "Recent Meetings"}</h3>
             <button class="button soft" data-go="meeting" type="button">Open Detail</button>
           </div>
           <div class="meeting-list">
-            ${state.meetings.length ? state.meetings.map(renderMeetingRow).join("") : `<p class="muted">No saved meetings yet. Analyze one to create the first record.</p>`}
+            ${visibleMeetings.length ? visibleMeetings.map(renderMeetingRow).join("") : renderEmptyState(
+              state.searchQuery ? "No matching meetings" : "No meetings yet",
+              state.searchQuery ? "Try a different search term, or analyze a new meeting." : "Analyze your first transcript to create a summary, decisions, risks, and tasks.",
+              state.searchQuery ? "" : "Analyze Meeting",
+              "analyzer"
+            )}
           </div>
         </section>
 
         <aside class="insight-card">
           <div class="insight-mark">AI</div>
-          <p class="kicker">MeetMind AI Insight</p>
-          <h3>${pending} tasks need attention</h3>
-          <p>Your data is now workspace-scoped. Admins can see all organization meetings; employees only see meetings and tasks they can access.</p>
+          <p class="kicker">${state.searchQuery ? "Search Results" : "MeetMind AI Insight"}</p>
+          <h3>${state.searchQuery ? `${visibleTasks.length} matching tasks` : `${pending} tasks need attention`}</h3>
+          <p>${state.searchQuery ? `Filtering meetings and tasks for "${escapeHtml(state.searchQuery)}".` : state.token ? "Your data is workspace-scoped. Admins can see organization meetings; employees only see meetings and tasks they can access." : "Demo data is stored locally, so the sample path works even when PostgreSQL is not configured."}</p>
           <div class="hero-actions">
             <button class="button primary" data-go="tasks" type="button">Review Tasks</button>
           </div>
@@ -324,7 +369,7 @@ function renderAnalyzer() {
             <div>
               <p class="kicker">Meeting Analyzer</p>
               <h2>New Analysis</h2>
-              <p class="muted">This saves the meeting, decisions, risks, and tasks to Neon through your backend.</p>
+              <p class="muted">${state.token ? "This saves the meeting, decisions, risks, and tasks to Neon through your backend." : "This analyzes the transcript locally and stores the meeting in browser storage."}</p>
             </div>
             <button class="button soft" id="clearBtn" type="button">Clear</button>
           </div>
@@ -341,7 +386,7 @@ function renderAnalyzer() {
             <span class="muted" id="wordCount">0 words</span>
             <div class="hero-actions">
               <button class="button soft" id="loadSampleBtn" type="button">Load Sample</button>
-              <button class="button primary" type="submit">${state.loading ? "Saving..." : "Analyze & Save"}</button>
+              <button class="button primary" type="submit">${state.loading ? "Saving..." : state.token ? "Analyze & Save" : "Analyze Locally"}</button>
             </div>
           </div>
         </form>
@@ -387,9 +432,10 @@ function renderAnalysis(analysis) {
 }
 
 function renderTasks() {
-  const pending = state.tasks.filter((task) => task.status === "pending");
-  const progress = state.tasks.filter((task) => task.status === "progress");
-  const done = state.tasks.filter((task) => task.status === "done");
+  const tasks = getFilteredTasks();
+  const pending = tasks.filter((task) => task.status === "pending");
+  const progress = tasks.filter((task) => task.status === "progress");
+  const done = tasks.filter((task) => task.status === "done");
 
   return `
     <section class="view active">
@@ -397,7 +443,7 @@ function renderTasks() {
         <div>
           <p class="kicker">Workspace Tasks</p>
           <h2>Manage extracted action items</h2>
-          <p class="muted">Task status updates are saved back to PostgreSQL.</p>
+          <p class="muted">${state.token ? "Task status updates are saved back to PostgreSQL." : "Task status updates are saved in this browser for the demo."}</p>
         </div>
         <button class="button primary" data-go="analyzer" type="button">New Analysis</button>
       </div>
@@ -405,25 +451,34 @@ function renderTasks() {
       <div class="filters">
         <span class="filter-pill">Priority: All</span>
         <span class="filter-pill">Owner: Everyone</span>
-        <span class="filter-pill">Source: Saved meetings</span>
+        <span class="filter-pill">Source: ${state.token ? "Saved meetings" : "Local demo"}</span>
       </div>
 
-      <div class="board">
+      ${tasks.length ? `<div class="board">
         ${renderColumn("Pending", pending)}
         ${renderColumn("In Progress", progress)}
         ${renderColumn("Completed", done)}
-      </div>
+      </div>` : renderEmptyState(
+        state.searchQuery ? "No matching tasks" : "No tasks yet",
+        state.searchQuery ? "Clear the search or try another owner, priority, or task keyword." : "Analyze a meeting to turn action items into a task board.",
+        state.searchQuery ? "" : "New Analysis",
+        "analyzer"
+      )}
     </section>
   `;
 }
 
 function renderMeetingDetail() {
   const analysis = state.latestAnalysis;
+  const decisions = filterList(analysis.decisions);
+  const risks = filterList(analysis.risks);
+  const actionItems = filterActionItems(analysis.actionItems);
+
   return `
     <section class="view active detail">
       <div class="detail-header">
         <div class="detail-title">
-          <span class="chip">Latest Saved Analysis</span>
+          <span class="chip">${state.token ? "Latest Saved Analysis" : "Latest Local Analysis"}</span>
           <h2>${escapeHtml(analysis.title)}</h2>
           <div class="detail-meta">
             <span>${escapeHtml(analysis.date || "Today")}</span>
@@ -432,7 +487,7 @@ function renderMeetingDetail() {
           </div>
         </div>
         <div class="hero-actions">
-          <button class="button soft" type="button">Export PDF</button>
+          <button class="button soft" id="exportReportBtn" type="button">Export PDF</button>
           <button class="button primary" id="copyFollowUp" type="button">Copy Follow-up</button>
         </div>
       </div>
@@ -447,21 +502,21 @@ function renderMeetingDetail() {
         <section class="detail-card">
           <h3>Decision Log</h3>
           <ul class="detail-list">
-            ${analysis.decisions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+            ${decisions.length ? decisions.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : `<li>No matching decisions.</li>`}
           </ul>
         </section>
 
         <section class="detail-card">
           <h3>Action Items</h3>
           <ul class="detail-list">
-            ${analysis.actionItems.map((item) => `<li><strong>${escapeHtml(item.owner)}</strong>: ${escapeHtml(item.task)} <span class="muted">(${escapeHtml(item.deadline)})</span></li>`).join("")}
+            ${actionItems.length ? actionItems.map((item) => `<li><strong>${escapeHtml(item.owner)}</strong>: ${escapeHtml(item.task)} <span class="muted">(${escapeHtml(item.deadline)})</span></li>`).join("") : `<li>No matching action items.</li>`}
           </ul>
         </section>
 
         <section class="detail-card wide">
           <h3>Risks and Blockers</h3>
           <ul class="detail-list">
-            ${analysis.risks.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+            ${risks.length ? risks.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : `<li>No matching risks.</li>`}
           </ul>
         </section>
 
@@ -546,6 +601,29 @@ function renderGoogleButton() {
   });
 }
 
+async function handleInstallApp() {
+  if (!installPromptEvent) return;
+
+  installPromptEvent.prompt();
+  const choice = await installPromptEvent.userChoice;
+  installPromptEvent = null;
+  renderProfile();
+
+  if (choice.outcome === "accepted") {
+    toast("Installing MeetMind AI");
+  }
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // PWA support is optional; the app still works normally if registration is blocked.
+    });
+  });
+}
+
 function logout() {
   state.token = "";
   state.user = null;
@@ -568,6 +646,15 @@ async function handleAnalyzeMeeting(event) {
 
   state.loading = true;
   render();
+
+  if (!state.token) {
+    const analysis = analyzeMeeting(title, transcriptValue);
+    persistLocalAnalysis(analysis);
+    state.loading = false;
+    setView("meeting");
+    toast("Meeting analyzed locally");
+    return;
+  }
 
   try {
     const data = await api("/api/meetings", {
@@ -598,6 +685,12 @@ async function updateTaskStatus(taskId, status) {
   const previous = task.status;
   task.status = status;
   render();
+
+  if (!state.token) {
+    saveState();
+    toast("Task updated locally");
+    return;
+  }
 
   try {
     await api(`/api/tasks/${taskId}`, {
@@ -703,6 +796,153 @@ function normalizeTask(task) {
   };
 }
 
+function persistLocalAnalysis(analysis) {
+  const normalized = normalizeAnalysis(analysis);
+  normalized.id = `local-${Date.now()}`;
+  normalized.date = "Today";
+
+  const localTasks = normalized.actionItems.map((item, index) => ({
+    ...item,
+    id: `${normalized.id}-task-${index}`,
+    status: "pending",
+    meetingTitle: normalized.title
+  }));
+
+  state.latestAnalysis = normalized;
+  state.meetings = [normalized, ...state.meetings.filter((meeting) => meeting.id !== "starter")];
+  state.tasks = [...localTasks, ...state.tasks.filter((task) => !String(task.id).startsWith("starter-task-"))];
+  saveState();
+}
+
+function getFilteredMeetings() {
+  if (!state.searchQuery) return state.meetings;
+  return state.meetings.filter((meeting) => matchesSearch(
+    meeting.title,
+    meeting.summary,
+    meeting.followUp,
+    ...(meeting.decisions || []),
+    ...(meeting.actionItems || []).flatMap((item) => [item.task, item.owner, item.deadline, item.source])
+  ));
+}
+
+function getFilteredTasks() {
+  if (!state.searchQuery) return state.tasks;
+  return state.tasks.filter((task) => matchesSearch(
+    task.task,
+    task.owner,
+    task.deadline,
+    task.priority,
+    task.status,
+    task.source,
+    task.meetingTitle
+  ));
+}
+
+function filterList(items) {
+  if (!state.searchQuery) return items || [];
+  return (items || []).filter((item) => matchesSearch(item));
+}
+
+function filterActionItems(items) {
+  if (!state.searchQuery) return items || [];
+  return (items || []).filter((item) => matchesSearch(item.task, item.owner, item.deadline, item.priority, item.source));
+}
+
+function matchesSearch(...values) {
+  const query = state.searchQuery.toLowerCase();
+  return values
+    .filter((value) => value !== undefined && value !== null)
+    .some((value) => String(value).toLowerCase().includes(query));
+}
+
+function renderEmptyState(title, message, actionLabel, targetView) {
+  return `
+    <div class="empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(message)}</p>
+      ${actionLabel ? `<button class="button primary" data-go="${targetView}" type="button">${escapeHtml(actionLabel)}</button>` : ""}
+    </div>
+  `;
+}
+
+function exportMeetingReport() {
+  const report = buildReportHtml(state.latestAnalysis);
+  const printWindow = window.open("", "_blank", "width=900,height=1000");
+
+  if (!printWindow) {
+    toast("Popup blocked. Allow popups to export the report.");
+    return;
+  }
+
+  printWindow.document.write(report);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  toast("Report opened for PDF export");
+}
+
+function buildReportHtml(analysis) {
+  const safeTitle = escapeHtml(analysis.title || "Meeting Report");
+  const actionRows = (analysis.actionItems || []).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.task)}</td>
+      <td>${escapeHtml(item.owner)}</td>
+      <td>${escapeHtml(item.deadline)}</td>
+      <td>${escapeHtml(item.priority)}</td>
+    </tr>
+  `).join("");
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <title>${safeTitle} | MeetMind AI Report</title>
+        <style>
+          body { margin: 0; padding: 40px; color: #191b23; font-family: Arial, sans-serif; line-height: 1.5; }
+          header { border-bottom: 3px solid #004ac6; margin-bottom: 24px; padding-bottom: 18px; }
+          h1 { margin: 0 0 8px; font-size: 30px; }
+          h2 { margin: 28px 0 10px; font-size: 18px; color: #004ac6; }
+          .meta { color: #5f6474; }
+          .box { border: 1px solid #d9dbea; border-radius: 10px; padding: 14px; margin: 10px 0; }
+          ul { padding-left: 20px; }
+          li { margin-bottom: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #d9dbea; padding: 10px; text-align: left; vertical-align: top; }
+          th { background: #f3f3fe; }
+          footer { margin-top: 32px; color: #5f6474; font-size: 12px; }
+          @media print { body { padding: 24px; } }
+        </style>
+      </head>
+      <body>
+        <header>
+          <h1>${safeTitle}</h1>
+          <div class="meta">${escapeHtml(analysis.date || "Today")} · ${escapeHtml(analysis.duration || "32 minutes")} · ${escapeHtml(analysis.participants || 1)} participants</div>
+        </header>
+
+        <h2>Executive Summary</h2>
+        <div class="box">${escapeHtml(analysis.summary || "")}</div>
+
+        <h2>Decision Log</h2>
+        <ul>${(analysis.decisions || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+
+        <h2>Action Items</h2>
+        <table>
+          <thead>
+            <tr><th>Task</th><th>Owner</th><th>Deadline</th><th>Priority</th></tr>
+          </thead>
+          <tbody>${actionRows || `<tr><td colspan="4">No action items captured.</td></tr>`}</tbody>
+        </table>
+
+        <h2>Risks and Blockers</h2>
+        <ul>${(analysis.risks || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+
+        <h2>Follow-up Draft</h2>
+        <div class="box">${escapeHtml(analysis.followUp || "")}</div>
+
+        <footer>Generated by MeetMind AI.</footer>
+      </body>
+    </html>`;
+}
+
 function statCard(label, value, icon, chip, tone) {
   return `
     <article class="stat-card">
@@ -783,11 +1023,7 @@ function renderTaskCard(task) {
 }
 
 function analyzeMeeting(title, transcript) {
-  const sentences = transcript
-    .replace(/\n/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
+  const sentences = splitTranscriptSentences(transcript);
 
   const decisions = unique(
     sentences.filter((sentence) => /decided|approved|agreed|confirmed|go with|keep the|final decision/i.test(sentence))
@@ -824,6 +1060,25 @@ function analyzeMeeting(title, transcript) {
     }],
     followUp
   };
+}
+
+function splitTranscriptSentences(transcript) {
+  return transcript
+    .split(/\n+/)
+    .flatMap((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return [];
+
+      const speakerMatch = trimmed.match(/^([A-Z][a-z]+):\s*/);
+      const speaker = speakerMatch?.[1];
+      const body = speaker ? trimmed.slice(speakerMatch[0].length) : trimmed;
+
+      return body
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean)
+        .map((sentence) => speaker ? `${speaker}: ${sentence}` : sentence);
+    });
 }
 
 function parseActionItem(sentence) {

@@ -367,6 +367,11 @@ button {
   padding: 7px 11px;
 }
 
+.button.full-width {
+  width: 100%;
+  margin-top: 14px;
+}
+
 .button.secondary {
   background: var(--surface);
   border-color: var(--line);
@@ -730,9 +735,12 @@ select:focus {
 }
 
 .empty-state {
-  min-height: 400px;
+  min-height: 280px;
   display: grid;
   place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 30px;
   text-align: center;
   color: var(--muted);
 }
@@ -742,6 +750,12 @@ select:focus {
   color: var(--text);
   margin-bottom: 8px;
   font-size: 1.2rem;
+}
+
+.empty-state p {
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .analysis {

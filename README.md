@@ -25,6 +25,16 @@ Open `index.html` in a browser.
 
 No installation is required for the offline demo version.
 
+## Install As An App
+
+MeetMind AI is configured as a Progressive Web App.
+
+1. Open the deployed site in Chrome or Edge.
+2. Click the browser install icon in the address bar, or use the in-app `Install App` button when it appears.
+3. Launch MeetMind AI from the desktop, Start menu, or app launcher.
+
+The app shell is cached for faster repeat visits. Backend API requests still use the live Render service.
+
 ## Backend Setup
 
 The backend uses Node.js, Express, JWT auth, and PostgreSQL.

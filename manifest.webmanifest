@@ -1,0 +1,48 @@
+{
+  "name": "MeetMind AI",
+  "short_name": "MeetMind",
+  "description": "AI meeting assistant for summaries, decisions, risks, follow-ups, and tasks.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf8ff",
+  "theme_color": "#004ac6",
+  "orientation": "any",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Analyze Meeting",
+      "short_name": "Analyze",
+      "description": "Open MeetMind AI and start a new meeting analysis.",
+      "url": "/?view=analyzer",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks",
+      "description": "Review extracted action items.",
+      "url": "/?view=tasks",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MeetMind AI | Devpost Demo</title>
+  <meta name="theme-color" content="#004ac6" />
+  <meta name="description" content="AI meeting assistant for summaries, decisions, risks, follow-ups, and tasks." />
+  <title>MeetMind AI | Workspace</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -43,9 +48,9 @@
 
       <div class="plan-card">
         <p class="kicker">Current Plan</p>
-        <strong>Devpost Demo</strong>
+        <strong>Free Workspace</strong>
         <div class="meter"><span></span></div>
-        <p>Offline analyzer ready for live judging.</p>
+        <p>AI meeting assistant active.</p>
       </div>
     </aside>
 
@@ -53,7 +58,7 @@
       <header class="topbar">
         <div class="search">
           <span>Search</span>
-          <input type="search" placeholder="Search meetings, tasks, or decisions..." />
+          <input id="searchInput" type="search" placeholder="Search meetings, tasks, or decisions..." />
         </div>
         <div class="profile" id="profileArea">
           <button class="icon-button" type="button" aria-label="Notifications">N</button>
